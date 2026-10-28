@@ -1,0 +1,146 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---- Better Auth official models (managed by Better Auth) ----
+
+model User {
+  id            String    @id
+  name          String?
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  sessions     Session[]
+  accounts     Account[]
+  applications Application[]
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+}
+
+// ---- Business models ----
+
+enum ApplicationStatus {
+  PENDING
+  INTERVIEW
+  REJECTED
+  OFFER
+}
+
+enum InterviewRoundType {
+  PHONE
+  TECH
+  ONSITE
+  HR
+}
+
+enum InterviewRoundResult {
+  PENDING
+  PASS
+  FAIL
+}
+
+model Application {
+  id          String            @id @default(cuid())
+  userId      String
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company     String
+  position    String
+  appliedDate DateTime          @db.Date
+  status      ApplicationStatus @default(PENDING)
+  source      String?
+  link        String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  notes          Note[]
+  statusHistory  StatusHistory[]
+  interviewRounds InterviewRound[]
+
+  @@index([userId, status])
+  @@index([userId, appliedDate])
+}
+
+model Note {
+  id            String   @id @default(cuid())
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  content       String
+  createdAt     DateTime @default(now())
+
+  @@index([applicationId])
+}
+
+model StatusHistory {
+  id            String            @id @default(cuid())
+  applicationId String
+  application   Application       @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  fromStatus    ApplicationStatus
+  toStatus      ApplicationStatus
+  changedAt     DateTime          @default(now())
+
+  @@index([applicationId])
+}
+
+model InterviewRound {
+  id            String               @id @default(cuid())
+  applicationId String
+  application   Application          @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  type          InterviewRoundType
+  scheduledAt   DateTime
+  result        InterviewRoundResult @default(PENDING)
+  feedback      String?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  @@index([applicationId])
+}
